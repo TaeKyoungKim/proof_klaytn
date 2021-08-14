@@ -1,4 +1,6 @@
-## proofdocument_klaytn 프로젝트
+
+
+## []()
 
 #### 클레이튼 기반 테스트 네트워크인 baobab 네트워에 truffle을 이용해여 배포한다.
 
@@ -209,4 +211,193 @@ smartcontract.methods.checkDocument("문서2").call().then(data=>{
 ```
 
 
+
+http://localhost:8080 웹서와 http://api.baobab.klaytn.net:8651 블록체인 네트워크 서버와 상호 연동을 하는 
+
+DAPP을 만들기 위해 먼저
+
+
+
+app.js 파일을 생성후 다음과 같은 코드를 추가한다.
+
+```javascript
+const express = require('express')
+const bodyParser = require('body-parser')
+const app = express()
+const apiRouter = require('./routes/router')
+const path = require('path')
+
+app.set('views' , path.resolve(__dirname+'/views'))
+app.set('view engine' , 'ejs')
+app.engine('html', require('ejs').renderFile)
+
+
+app.use(bodyParser.urlencoded({extended:true}))
+app.use(bodyParser.json())
+app.use(apiRouter)
+
+var port = 8080
+app.listen(port , ()=>{
+    console.log(`Server is Runing at http://localhost:${port}`)
+})
+```
+
+
+
+라우팅 기능을 만들어서 app.use 메소드를 이용하여 미들웨어로 등록을 하기 위해
+
+
+
+routes/router.js 파일생성후 다음과 같은 코드를 추가한다.
+
+```javascript
+const route = require('express').Router()
+
+
+route.get('/', (req, res)=>{
+    res.render("index.html")
+})
+
+module.exports = route;
+```
+
+
+
+
+
+http://localhost:8080 GET방식으로 요청이 오면 index.html 을 랜더링 하기 위해  views/index.html
+
+
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>문서입력</title>
+</head>
+<body>
+    <%= %>
+    <h1>문서입력페이지</h1>
+    <form action="/input" method="POST">
+        <input type="text" name="desc" placeholder="인증내용입력">
+        <input type="submit" value="인증저장">
+    </form>
+</body>
+</html>
+```
+
+
+
+
+
+![image-20210814171848738](https://user-images.githubusercontent.com/25717861/129439839-907d532f-7f64-40a1-b29f-bbaf87fd1689.png)
+
+문서의 내용을 간단히 적고 인증저장 버튼을 누루면 POST 방식으로 http://localhost:8080/input 주소로 
+
+ 문서의 내용데이터를 같이 보내고 
+
+서버는 그것을 받아서 http://api.baobab.klaytn.net:8651 의 콘트렉트 함수중 notraize 함수를 실행시켜서 
+
+블록체인 네트워크에 문서가 참임을 저장한다.
+
+
+
+routes/router.js 파일을 다음과 같이 수정한다.
+
+
+
+```html
+const route = require('express').Router()
+const Caver = require('caver-js')
+const proof_json = require('../build/contracts/Proof.json')
+const cav = new Caver('https://api.baobab.klaytn.net:8651')
+
+const smartcontract = new cav.klay.Contract(proof_json.abi, proof_json.networks[1001].address)
+var account = cav.klay.accounts.createWithAccountKey("지갑생성시 address", "지갑생성시 privatekey")
+cav.klay.accounts.wallet.add(account)
+
+route.get('/', (req, res)=>{
+    res.render("index.html")
+})
+
+route.post('/input',(req, res)=>{
+    console.log(req.body.desc)
+    var document = req.body.desc
+    
+    smartcontract.methods.notarize(document).send({
+    from:account.address,
+    gas:200000
+    }).then(
+        receipt=> {
+            console.log(receipt)
+            res.redirect("/proof")
+        })
+    
+})
+
+
+route.get('/proof', (req ,res)=>{
+    res.render('proof.html')
+})
+
+
+module.exports = route;
+```
+
+
+
+
+
+서버 재실행후 다시확인다.
+
+
+
+
+
+문선의 내용의 진위여부를 판단할 수 있는 기능 구현
+
+
+
+routes/router.js 에 다음과 같이 추가 한다.
+
+```javascript
+....
+
+route.post('/proof', (req, res)=>{
+    var document = req.body.proof
+    smartContract.methods.checkDocument(document)
+    .call()
+    .then(
+        data=>{
+            console.log(data)
+            res.render('proof_result.html', {proof : data})
+        })
+    
+})
+
+.....
+```
+
+
+
+views/proof_result.html 파일 생성후 담과 같이 코드 추가한다.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROOF</title>
+</head>
+<body>
+    <h1>결과페이지</h1>
+    <h1> <%= proof %></h1>
+</body>
+</html>
+```
 
