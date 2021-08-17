@@ -401,3 +401,132 @@ views/proof_result.html 파일 생성후 담과 같이 코드 추가한다.
 </html>
 ```
 
+
+
+
+
+klaytn 기반에 자체 토큰을 생성후 문서 인증을 전송하면 자제 토큰을 보상으로 주는 시스템 구현하기 위해
+
+route.js다음과 같이 수정한다.
+
+
+
+```javascript
+const route = require('express').Router()
+const Caver = require('caver-js')
+const proof_json = require('../build/contracts/Proof.json')
+const cav = new Caver('https://api.baobab.klaytn.net:8651')
+
+const CaverExtKAS = require('caver-js-ext-kas')
+const caver = new CaverExtKAS()
+
+
+const accessKeyId = "kas accessKeyID";
+const secretAccessKey = "kassecretAccessKey" ;
+
+
+const smartcontract = new cav.klay.Contract(proof_json.abi, proof_json.networks[1001].address)
+var account = cav.klay.accounts.createWithAccountKey("klay 개인지갑생성시 주소", "private Key")
+cav.klay.accounts.wallet.add(account)
+
+const chainId = 1001 // 클레이튼 테스트 네트워크 접속 ID 
+
+caver.initKASAPI(chainId, accessKeyId, secretAccessKey) //KAS console 초기화
+
+const keyringContainer = new caver.keyringContainer()
+const keyring = keyringContainer.keyring.createFromPrivateKey('privateKey')
+keyringContainer.add(keyring)       //klaytn Keyring 설정 
+
+
+async function create_wallet(){     //wallet 생성 function
+    const wallet = await caver.kas.wallet.createAccount()   //wallet 생성
+    console.log(wallet);
+}
+
+// create_wallet()
+async function create_token(){      //토큰 생성 function
+    const kip7 = await caver.kct.kip7.deploy({
+        name: 'Jinju1',     //토큰 이름
+        symbol: 'JONE',       //토큰 심볼
+        decimals: 0,        //토큰의 소수점 자리 수
+        initialSupply: '100000000', //토큰의 발행량
+    }, keyring.address, keyringContainer) // keyringContainer를 이용하여 주소 등록
+    console.log(kip7._address)
+}
+
+// create_token()
+
+async function token_trans(){       //token 송금 function
+    const kip7 = new caver.kct.kip7('token 생성시 주소(kip7._address)')       //생성된 토큰의 Address 입력
+    kip7.setWallet(keyringContainer)        //kip7 내의 wallet 설정        
+    const receipt = await kip7.transfer('전송하고자하는 상대방 월렛주소', '100', { from: keyring.address })       //transfer('토큰 받는 주소', 토큰 양, {from:'트랜젝션을 일으키는 주소'})
+    console.log(receipt);
+}
+
+token_trans()
+
+async function balanceOf(){
+    const kip7 = new caver.kct.kip7('token 생성시 주소(kip7._address)')       //생성된 토큰의 Address 입력
+    kip7.setWallet(keyringContainer)        //kip7 내의 wallet 설정  
+    const receipt = await kip7.balanceOf('조회할 주소')  //balanceOf('토큰 조회할 주소')
+    console.log(receipt);
+}
+
+// balanceOf()
+
+route.get('/', (req, res)=>{
+    
+    res.render("index.html")
+})
+
+route.post('/input',(req, res)=>{
+    console.log(req.body.desc)
+    var document = req.body.desc
+
+    smartcontract.methods.notarize(document).send({
+    from: account.address,
+    gas: 200000
+    }).then(
+        receipt=> {
+            console.log(receipt)
+            res.redirect("/proof")
+        })
+    
+})
+
+route.get('/proof', (req ,res)=>{
+    res.render('proof.html')
+})
+
+route.post('/proof', (req, res)=>{
+    var document = req.body.proof
+    smartContract.methods.checkDocument(document)
+    .call()
+    .then(
+        data=>{
+            console.log(data)
+            res.render('proof_result.html', {proof : data})
+        })
+    
+})
+
+module.exports = route;
+
+```
+
+
+
+위에 코드에서 create_wallet() , create_token() 함수를 실행시켜서 토큰을 생성시킨다.
+
+
+
+문서를  인증요청을 하면 인증요청을 한 유저에게 10 JONE 전송하는 시스템 구현을 위해 다음과 같이 코드를
+
+수정한다.
+
+
+
+```
+
+```
+
