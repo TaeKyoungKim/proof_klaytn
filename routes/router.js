@@ -4,6 +4,7 @@ const proof_json = require('../build/contracts/Proof.json')
 const cav = new Caver('https://api.baobab.klaytn.net:8651')
 
 const CaverExtKAS = require('caver-js-ext-kas')
+const { json } = require('body-parser')
 const caver = new CaverExtKAS()
 
 
@@ -41,18 +42,19 @@ async function create_token(){      //토큰 생성 function
 }
 
 
-async function token_trans(){       //token 송금 function
+async function token_trans(_address){       //token 송금 function
     const kip7 = new caver.kct.kip7('0xe3a6Ba4063104740F91CB9D3108a2547bf339E2c')       //생성된 토큰의 Address 입력
     kip7.setWallet(keyringContainer)        //kip7 내의 wallet 설정        
-    const receipt = await kip7.transfer('0xD0a57B9024a9999f3656B1Cb8cfb9073B96232E7', '100000', { from: keyring.address })       //transfer('토큰 받는 주소', 토큰 양, {from:'트랜젝션을 일으키는 주소'})
+    const receipt = await kip7.transfer(_address, '10', { from: keyring.address })       //transfer('토큰 받는 주소', 토큰 양, {from:'트랜젝션을 일으키는 주소'})
     console.log(receipt);
 }
 
-async function balanceOf(){
+async function balanceOf(_address){
     const kip7 = new caver.kct.kip7('0xe3a6Ba4063104740F91CB9D3108a2547bf339E2c')       //생성된 토큰의 Address 입력
     kip7.setWallet(keyringContainer)        //kip7 내의 wallet 설정  
-    const receipt = await kip7.balanceOf('0xD0a57B9024a9999f3656B1Cb8cfb9073B96232E7')  //balanceOf('토큰 조회할 주소')
+    const receipt = await kip7.balanceOf(_address)  //balanceOf('토큰 조회할 주소')
     console.log(receipt);
+    return receipt
 }
 
 
@@ -71,7 +73,10 @@ route.post('/input',(req, res)=>{
     }).then(
         receipt=> {
             console.log(receipt)
-            res.redirect("/proof")
+            token_trans("0xF5B549F58F2B66B768A76EB5F7fccCd1795D6C0f")
+            receipt = balanceOf("0xF5B549F58F2B66B768A76EB5F7fccCd1795D6C0f")
+            data =  receipt.toString()
+            res.render("input.html", {data:data})
         })
     
 })
